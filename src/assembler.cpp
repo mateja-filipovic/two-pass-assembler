@@ -83,6 +83,12 @@ void Assembler::label_handler()
     // remove ':'
     label.erase(std::remove(label.begin(), label.end(), ':'), label.end());
 
+    if(find_symbol(label) != nullptr)
+    {
+        std::cout << "ERROR in line " << line_counter << ", symbol " << label << " already defined" << std::endl;
+        exit(1);
+    }
+
     symbol_table.push_back(new Symbol(label, current_section, location_counter, 'l', symbol_table.size()));
     token_counter++;
 }
@@ -219,6 +225,11 @@ void Assembler::skip_handler_fp()
     
     // check for hex value
     offset = literal_to_number(temp_token);
+    if(offset < 0)
+    {
+        std::cout << "ERROR in line " << line_counter << ", .skip size must not be negative" << std::endl;
+        exit(1);
+    }
 
     // update lc by the number of bytes skipped
     location_counter += offset;
@@ -365,7 +376,7 @@ void Assembler::instruction_handler()
 
         // nije u pitanju registarsko indirektno
         // treba proveriti sva ostala adresiranja
-        if(line_tokens.at(token_counter).at(0) != '*' || line_tokens.at(token_counter).at(1) != '[')
+        if(line_tokens.at(token_counter).compare(0, 2, "*[") != 0)
         {
             if(line_tokens.size() - token_counter != 1)
             {
@@ -875,7 +886,7 @@ void Assembler::branch_handler_sp()
 
     // there may be spaces in [r0 + 0x12], so form an expression
     // mozda ne treba back
-    if(temp_token.at(0) == '*' && temp_token.at(1) == '[' && temp_token.back() != ']')
+    if(temp_token.compare(0, 2, "*[") == 0 && temp_token.back() != ']')
         temp_token = form_expression();
     
     // immediate literal
@@ -1017,10 +1028,25 @@ std::string Assembler::extract_between_chars(std::string str, char from, char to
 
 int Assembler::literal_to_number(std::string literal)
 {
-    if(literal.size() > 1 && literal.at(0) == '0' && (literal.at(1) == 'x' || literal.at(1) == 'X'))
-        return std::stoi(literal, 0, 16);
-    else
-        return std::stoi(literal);
+    long val;
+    try
+    {
+        if(literal.size() > 1 && literal.at(0) == '0' && (literal.at(1) == 'x' || literal.at(1) == 'X'))
+            val = std::stol(literal, 0, 16);
+        else
+            val = std::stol(literal);
+    }
+    catch(const std::exception&)
+    {
+        val = 65536;
+    }
+
+    if(val < -32768 || val > 65535)
+    {
+        std::cout << "ERROR in line " << line_counter << ", literal " << literal << " does not fit in 16 bits" << std::endl;
+        exit(1);
+    }
+    return val;
 }
 
 std::string Assembler::form_expression()
@@ -1292,29 +1318,29 @@ void Assembler::print_data()
     outfile.close();
 }
 
-    const std::regex Assembler::WORD_LITERAL_REGEX("^(([0-9]+)|(0[xX][0-9A-Fa-f]+))$");
+    const std::regex Assembler::WORD_LITERAL_REGEX("^((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))$");
     const std::regex Assembler::WORD_SYMBOL_REGEX("^[a-zA-Z]\\w*$");
 
-    const std::regex Assembler::REGISTER_INSTRUCTION_REGEX("^r[0-5]$");
+    const std::regex Assembler::REGISTER_INSTRUCTION_REGEX("^r[0-7]$");
 
     // branch and call addressing modes and formats
-    const std::regex Assembler::BRANCH_LITERAL_REGEX("^(([0-9]+)|(0[xX][0-9A-Fa-f]+))$");
+    const std::regex Assembler::BRANCH_LITERAL_REGEX("^((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))$");
     const std::regex Assembler::BRANCH_SYMBOL_REGEX("^[a-zA-Z]\\w*$");
     const std::regex Assembler::BRANCH_PCREL_REGEX("^%[a-zA-Z]\\w*$");
-    const std::regex Assembler::BRANCH_MEMLITERAL_REGEX("^\\*(([0-9]+)|(0[xX][0-9A-Fa-f]+))$");
+    const std::regex Assembler::BRANCH_MEMLITERAL_REGEX("^\\*((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))$");
     const std::regex Assembler::BRANCH_MEMSYMBOL_REGEX("^\\*[a-zA-Z]\\w*$");
     const std::regex Assembler::BRANCH_REGDIR_REGEX("^\\*r[0-7]$");
     const std::regex Assembler::BRANCH_REGIND_REGEX("^\\*\\[r[0-7]\\]$");   
-    const std::regex Assembler::BRANCH_LITERALREGIND_REGEX("^\\*\\[r[0-7]\\s?\\+\\s?(([0-9]+)|(0[xX][0-9A-Fa-f]+))\\]$");   
+    const std::regex Assembler::BRANCH_LITERALREGIND_REGEX("^\\*\\[r[0-7]\\s?\\+\\s?((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))\\]$");   
     const std::regex Assembler::BRANCH_SYMBOLREGIND_REGEX("^\\*\\[r[0-7]\\s?\\+\\s?[a-zA-Z]\\w*\\]$"); 
 
     // load store addressing modes and formats
-    const std::regex Assembler::LS_LITERAL_REGEX("^\\$(([0-9]+)|(0[xX][0-9A-Fa-f]+))$");
+    const std::regex Assembler::LS_LITERAL_REGEX("^\\$((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))$");
     const std::regex Assembler::LS_SYMBOL_REGEX("^\\$[a-zA-Z]\\w*$");
-    const std::regex Assembler::LS_MEMLITERAL_REGEX("^(([0-9]+)|(0[xX][0-9A-Fa-f]+))$");
+    const std::regex Assembler::LS_MEMLITERAL_REGEX("^((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))$");
     const std::regex Assembler::LS_MEMSYMBOL_REGEX("^[a-zA-Z]\\w*$");
     const std::regex Assembler::LS_PCRELSYMBOL_REGEX("^%[a-zA-Z]\\w*$");
     const std::regex Assembler::LS_REGDIR_REGEX("^r[0-7]$");
     const std::regex Assembler::LS_REGIND_REGEX("^\\[r[0-7]\\]$");   
-    const std::regex Assembler::LS_LITERALREGIND_REGEX("^\\[r[0-7]\\s?\\+\\s?(([0-9]+)|(0[xX][0-9A-Fa-f]+))\\]$");   
+    const std::regex Assembler::LS_LITERALREGIND_REGEX("^\\[r[0-7]\\s?\\+\\s?((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))\\]$");   
     const std::regex Assembler::LS_SYMBOLREGIND_REGEX("^\\[r[0-7]\\s?\\+\\s?[a-zA-Z]\\w*\\]$"); 

@@ -19,7 +19,6 @@ public:
     // divide strings into tokens, which are separated by whitespace
     void tokenize(std::string input, std::vector<std::string>& output);
 
-    void remove_comments(std::vector<std::string>& input);
     void remove_commas(std::vector<std::string>& input);
 
 private:

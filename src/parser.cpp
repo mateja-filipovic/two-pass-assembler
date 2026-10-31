@@ -22,26 +22,11 @@ void Parser::parse_file(std::vector<std::string>& output)
 
 void Parser::tokenize(std::string input, std::vector<std::string>& output)
 {
-    std::stringstream ss(input);
+    std::stringstream ss(input.substr(0, input.find('#')));
     while(ss >> input)
         output.push_back(input);
 
-    remove_comments(output);
     remove_commas(output);
-}
-
-void Parser::remove_comments(std::vector<std::string>& input)
-{
-    auto iter = std::find(input.begin(), input.end(), "#");
-
-    // comment not found
-    if(iter == input.end())
-        return;
-    
-    int remove_from_index = iter - input.begin();
-
-    // remove all tokens after #
-    input.erase(input.begin() + remove_from_index, input.end());
 }
 
 void Parser::remove_commas(std::vector<std::string>& input)
