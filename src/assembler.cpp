@@ -655,18 +655,8 @@ void Assembler::word_handler_sp()
 {
     if(std::regex_match(line_tokens.at(token_counter), WORD_LITERAL_REGEX))
     {
-        std::string out = "";
-        std::string temp_token = line_tokens.at(token_counter);
-        int val = 0;
+        int val = literal_to_number(line_tokens.at(token_counter));
 
-        // without outter if, .word 0 would be an error!
-        if(temp_token.size() != 1){
-            if(temp_token.at(0) == '0' && (temp_token.at(1) == 'x' || temp_token.at(1) == 'X'))
-                val = std::stoi(line_tokens.at(token_counter), 0, 16);
-        }
-        else
-            val = std::stoi(line_tokens.at(token_counter));
-        
         // insert into object code
         output.push_back(write_hex(val, 4));
 
@@ -686,7 +676,7 @@ void Assembler::word_handler_sp()
             }
             // dodaj u tabelu relokacija, ako nije equ koriscen!
             if(tmp->section != ABSOLUTE_SECTION)
-                relocation_table.push_back(new RelRecord(tmp->offset, "R_HYP0_16", tmp->index, current_section));
+                relocation_table.push_back(new RelRecord(location_counter, RELOCATION_ABSOLUTE, tmp->index, current_section));
             
             int val = tmp->offset;
             output.push_back(write_hex(val, 4));
@@ -1027,7 +1017,7 @@ std::string Assembler::extract_between_chars(std::string str, char from, char to
 
 int Assembler::literal_to_number(std::string literal)
 {
-    if(literal.at(0) == '0' && (literal.at(1) == 'x' || literal.at(1) == 'X'))
+    if(literal.size() > 1 && literal.at(0) == '0' && (literal.at(1) == 'x' || literal.at(1) == 'X'))
         return std::stoi(literal, 0, 16);
     else
         return std::stoi(literal);
@@ -1224,12 +1214,11 @@ void Assembler::mem_handler_sp()
         }
         if(s->section != ABSOLUTE_SECTION)
             relocation_table.push_back(new RelRecord(location_counter, RELOCATION_ABSOLUTE, s->index, current_section));
-        location_counter += 5;
 
         out += extract_register_num(reg);
         out += " 03 ";
         out += write_hex(s->offset, 4);
-        
+
         location_counter +=5;
     }
 
