@@ -19,15 +19,15 @@
 
 ---
 
-Ovo je prvi od tri zadatka iz projekta na predmetu Sistemski softver na Elektrotehničkom fakultetu Univerziteta u Beogradu. Postavka opisuje apstraktni 16-bitni računar i traži asembler, linker i emulator za njega. Ovaj repozitorijum sadrži asembler i linker. Asembler čita izvornu datoteku napisanu na asemblerskom jeziku iz postavke i proizvodi tekstualni predmetni program u školskoj varijanti ELF formata: tabelu sekcija, tabelu simbola, relokacione zapise i mašinski kod. Linker spaja takve predmetne programe, smešta njihove sekcije u memoriju i razrešava sve simbole, dajući ili sliku memorije za emulator ili novi predmetni program koji se može ponovo povezivati. Emulator nije deo ovog repozitorijuma.
+Ovo je projekat sa predmeta Sistemski softver na Elektrotehničkom fakultetu Univerziteta u Beogradu. Postavka opisuje apstraktni 16-bitni računar i traži asembler, linker i emulator za njega. Ovaj repozitorijum sadrži asembler i linker. Asembler čita izvornu datoteku napisanu na asemblerskom jeziku iz postavke i proizvodi tekstualni predmetni program u školskoj varijanti ELF formata: tabelu sekcija, tabelu simbola, relokacione zapise i mašinski kod. Linker spaja takve predmetne programe, smešta njihove sekcije u memoriju i razrešava sve simbole, dajući ili sliku memorije za emulator ili novi predmetni program koji se može ponovo povezivati. Emulator nije deo ovog repozitorijuma.
 
 ## Prevođenje
 
 Potrebni su `g++` i `make`. Projekat se prevodi na Linux-u i macOS-u.
 
 ```sh
-git clone https://github.com/mateja-filipovic/Two-Pass-Assembler.git
-cd Two-Pass-Assembler
+git clone https://github.com/mateja-filipovic/two-pass-assembler.git
+cd two-pass-assembler
 make
 ```
 

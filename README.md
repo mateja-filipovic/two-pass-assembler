@@ -19,15 +19,15 @@
 
 ---
 
-This is the first of three tasks in the System Software course project at the School of Electrical Engineering, University of Belgrade. The assignment describes an abstract 16-bit computer and asks for an assembler, a linker and an emulator for it. This repository holds the assembler and the linker. The assembler reads a source file written in the assignment's assembly language and produces a text object file in a school variant of the ELF format: a section table, a symbol table, relocation records and machine code. The linker merges such object files, places their sections in memory and resolves every symbol, producing either a memory image for the emulator or a new object file that can be linked again. The emulator is not part of this repository.
+This is the project from the System Software course at the School of Electrical Engineering, University of Belgrade. The assignment describes an abstract 16-bit computer and asks for an assembler, a linker and an emulator for it. This repository holds the assembler and the linker. The assembler reads a source file written in the assignment's assembly language and produces a text object file in a school variant of the ELF format: a section table, a symbol table, relocation records and machine code. The linker merges such object files, places their sections in memory and resolves every symbol, producing either a memory image for the emulator or a new object file that can be linked again. The emulator is not part of this repository.
 
 ## Build
 
 Needs `g++` and `make`. It builds on Linux and macOS.
 
 ```sh
-git clone https://github.com/mateja-filipovic/Two-Pass-Assembler.git
-cd Two-Pass-Assembler
+git clone https://github.com/mateja-filipovic/two-pass-assembler.git
+cd two-pass-assembler
 make
 ```
 
