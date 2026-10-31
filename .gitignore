@@ -1,0 +1,6 @@
+.DS_Store
+
+# build outputs
+*.o
+asembler
+a.out
