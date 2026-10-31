@@ -31,19 +31,19 @@ cd Two-Pass-Assembler
 make
 ```
 
-The binary `assembler` lands in the repository root. `make clean` removes it along with the object files.
+The binary `asembler` lands in the repository root. The spelling with one `s` is the name the assignment requires. `make clean` removes it along with the object files.
 
 ## Run
 
 ```sh
-./assembler -o main.o tests/test_main.s
+./asembler -o main.o tests/test_main.s
 ```
 
-The `-o` option names the output file and must come before the input file. The output is plain text and can be opened in any editor. On a syntax error the assembler prints the line number and the problem, writes nothing, and exits with status 1.
+The `-o` option names the output file and may appear before or after the input file; without it the output is written to `a.out`. The output is plain text and can be opened in any editor. On a syntax error the assembler prints the line number and the problem, writes nothing, and exits with status 1.
 
 ## Usage
 
-**Source format.** One instruction or directive per line. A comment starts with `#` and runs to the end of the line. A label ends with `:` and must be the first thing on its line; it may stand alone, in which case it marks the next line that has content. Operands are separated by commas. Literals are decimal or hexadecimal with a `0x` prefix and may be negative. Registers are `r0` to `r7`, where `r6` is the stack pointer and `r7` the program counter.
+**Source format.** One instruction or directive per line. A comment starts with `#` and runs to the end of the line. A label ends with `:` and must be the first thing on its line; it may stand alone, in which case it marks the next line that has content. Operands are separated by commas. Literals are decimal or hexadecimal with a `0x` prefix and may be negative. Registers are `r0` to `r7`, with `sp` and `pc` accepted as names for `r6` and `r7`, plus the status word `psw`.
 
 ```asm
 # file: main.s
@@ -73,7 +73,7 @@ myCounter:
 | `.global sym, ...` | Export the listed symbols |
 | `.extern sym, ...` | Import the listed symbols |
 | `.section name` | Start a new section; the previous one ends |
-| `.word sym, ...` or `.word literal` | Allocate two bytes per initializer, little-endian |
+| `.word init, ...` | Allocate two bytes per initializer, each a symbol or a literal, little-endian |
 | `.skip n` | Allocate `n` zero bytes |
 | `.equ sym, literal` | Define an absolute symbol |
 | `.end` | Stop assembling; the rest of the file is ignored |
@@ -161,7 +161,7 @@ A0 10 00 00 05
 The programs in `tests/` are the inputs used to exercise the assembler. There is no automated runner; assemble each one and inspect the output.
 
 ```sh
-for f in tests/*.s; do ./assembler -o "${f%.s}.o" "$f"; done
+for f in tests/*.s; do ./asembler -o "${f%.s}.o" "$f"; done
 ```
 
 | File | Covers |
@@ -185,8 +185,5 @@ Makefile
 
 ## Known limits
 
-- Registers are accepted only as `r0` to `r7`. The names `sp`, `pc` and `psw` are not recognised.
-- `.word` takes either a list of symbols or a single literal, not a mixed list.
 - A section name may appear only once per file; a second `.section` with the same name is not merged with the first.
-- The `-o` option must precede the input file.
 - The object file is text only. The assignment allows an additional binary output, which is not implemented.

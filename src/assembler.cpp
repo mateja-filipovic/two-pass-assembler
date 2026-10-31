@@ -182,33 +182,18 @@ void Assembler::word_handler_fp()
         std::cout << "ERROR in line " << line_counter << ", no word symbol list detected" << std::endl;
         exit(1);
     }
-            //std::regex literal("^(([0-9]+)|(0[xX][0-9A-Fa-f]+))$");
 
-    // check if literal or symbol list
-    if(std::regex_match(line_tokens.at(token_counter), LITERAL_REGEX))
+    // each initializer is a literal or a symbol
+    while(token_counter < line_tokens.size())
     {
-        token_counter++;
-        if(token_counter != line_tokens.size())
+        const std::string& token = line_tokens.at(token_counter);
+        if(!std::regex_match(token, LITERAL_REGEX) && !std::regex_match(token, SYMBOL_REGEX))
         {
-            std::cout << "ERROR in line " << line_counter << ", junk after literal found" << std::endl;
+            std::cout << "ERROR in line " << line_counter << ",  " << token << " is not a symbol or literal" << std::endl;
             exit(1);
         }
+        token_counter++;
         location_counter += 2;
-    }
-    else
-    {
-                //std::regex simbol("^[a-zA-Z]\\w*$");
-        // for each symbol check if format is correct
-        while(token_counter < line_tokens.size())
-        {
-            if(!std::regex_match(line_tokens.at(token_counter), SYMBOL_REGEX))
-            {
-                std::cout << "ERROR in line " << line_counter << ",  " << line_tokens.at(token_counter) << " is not a symbol" << std::endl;
-                exit(1);                          
-            }
-            token_counter++;
-            location_counter += 2;
-        }
     }
 }
 
@@ -566,36 +551,30 @@ void Assembler::section_handler_sp()
 
 void Assembler::word_handler_sp()
 {
-    if(std::regex_match(line_tokens.at(token_counter), LITERAL_REGEX))
+    while(token_counter < line_tokens.size())
     {
-        int val = literal_to_number(line_tokens.at(token_counter));
+        const std::string& token = line_tokens.at(token_counter);
+        int val;
 
-        // insert into object code, low byte first
-        output.push_back(write_hex(((val & 0xFF) << 8) | ((val >> 8) & 0xFF), 4));
-
-        token_counter++;
-        location_counter += 2;
-    }
-    else
-    {
-        while(token_counter < line_tokens.size())
+        if(std::regex_match(token, LITERAL_REGEX))
+            val = literal_to_number(token);
+        else
         {
-            std::string label = line_tokens.at(token_counter);
-            Symbol* tmp = find_symbol(label);
+            Symbol* tmp = find_symbol(token);
             if(tmp == nullptr)
             {
-                std::cout << "ERROR in line " << line_counter << ", one or more symbols undefined" << std::endl;
+                std::cout << "ERROR in line " << line_counter << ", symbol " << token << " undefined" << std::endl;
                 exit(1);
             }
             // dodaj u tabelu relokacija, ako nije equ koriscen!
             if(tmp->section != ABSOLUTE_SECTION)
                 relocation_table.push_back(new RelRecord(location_counter, RELOCATION_ABSOLUTE, tmp->index, current_section));
-            
-            int val = tmp->offset;
-            output.push_back(write_hex(((val & 0xFF) << 8) | ((val >> 8) & 0xFF), 4)); // low byte first
-            location_counter += 2;
-            token_counter++;
+            val = tmp->offset;
         }
+
+        output.push_back(write_hex(((val & 0xFF) << 8) | ((val >> 8) & 0xFF), 4)); // low byte first
+        location_counter += 2;
+        token_counter++;
     }
 }
 
@@ -791,10 +770,14 @@ void Assembler::branch_handler_sp()
 
 std::string Assembler::extract_register_num(std::string token)
 {
-    std::string res = "";
+    if(token == "sp")
+        return "6";
+    if(token == "pc")
+        return "7";
+    if(token == "psw")
+        return "8";
     // format ce biti rX, gde je x neki broj
-    res.push_back(token.at(1));
-    return res;
+    return std::string(1, token.at(1));
 }
 
 
@@ -909,21 +892,21 @@ Operand Assembler::parse_operand(const std::string& text, bool is_branch)
     }
     else if(std::regex_match(body, REGISTER_INSTRUCTION_REGEX))
     {
-        op.reg = body.at(1);
+        op.reg = extract_register_num(body).at(0);
         op.addr_mode = "01";
         op.size = 3;
         return op;
     }
     else if(std::regex_match(body, REGIND_REGEX))
     {
-        op.reg = body.at(2);
+        op.reg = extract_register_num(body.substr(1, body.size() - 2)).at(0);
         op.addr_mode = "02";
         op.size = 3;
         return op;
     }
     else if(std::regex_match(body, REGIND_LITERAL_REGEX) || std::regex_match(body, REGIND_SYMBOL_REGEX))
     {
-        op.reg = body.at(2);
+        op.reg = extract_register_num(body.substr(1, body.find('+') - 1)).at(0);
         op.addr_mode = "03";
         op.size = 5;
         payload = body.substr(body.find('+') + 1);
@@ -984,9 +967,9 @@ void Assembler::stack_handler_sp()
     std::string out; 
     if(instruction_mneumonic == PUSH_MNE)
     {
-        out = "B0 6";
+        out = "B0 ";
         out += extract_register_num(line_tokens.at(token_counter));
-        out += " 12";
+        out += "6 12";
     }
     else
     {
@@ -1109,9 +1092,9 @@ void Assembler::print_data()
     const std::regex Assembler::LITERAL_REGEX("^((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))$");
     const std::regex Assembler::SYMBOL_REGEX("^[a-zA-Z]\\w*$");
 
-    const std::regex Assembler::REGISTER_INSTRUCTION_REGEX("^r[0-7]$");
+    const std::regex Assembler::REGISTER_INSTRUCTION_REGEX("^(r[0-7]|sp|pc|psw)$");
 
     // register indirect operand forms, tokens already joined without spaces
-    const std::regex Assembler::REGIND_REGEX("^\\[r[0-7]\\]$");
-    const std::regex Assembler::REGIND_LITERAL_REGEX("^\\[r[0-7]\\+((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))\\]$");
-    const std::regex Assembler::REGIND_SYMBOL_REGEX("^\\[r[0-7]\\+[a-zA-Z]\\w*\\]$");
+    const std::regex Assembler::REGIND_REGEX("^\\[(r[0-7]|sp|pc|psw)\\]$");
+    const std::regex Assembler::REGIND_LITERAL_REGEX("^\\[(r[0-7]|sp|pc|psw)\\+((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))\\]$");
+    const std::regex Assembler::REGIND_SYMBOL_REGEX("^\\[(r[0-7]|sp|pc|psw)\\+[a-zA-Z]\\w*\\]$");

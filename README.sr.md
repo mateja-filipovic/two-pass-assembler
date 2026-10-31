@@ -31,19 +31,19 @@ cd Two-Pass-Assembler
 make
 ```
 
-Izvršna datoteka `assembler` nastaje u korenu repozitorijuma. `make clean` uklanja nju i objektne datoteke.
+Izvršna datoteka `asembler` nastaje u korenu repozitorijuma, pod imenom koje postavka zahteva. `make clean` uklanja nju i objektne datoteke.
 
 ## Pokretanje
 
 ```sh
-./assembler -o main.o tests/test_main.s
+./asembler -o main.o tests/test_main.s
 ```
 
-Opcija `-o` zadaje ime izlazne datoteke i mora stajati ispred ulazne. Izlaz je običan tekst i može se otvoriti u bilo kom editoru. Pri sintaksnoj grešci asembler ispisuje broj linije i opis problema, ne upisuje ništa i završava sa statusom 1.
+Opcija `-o` zadaje ime izlazne datoteke i može stajati ispred ili iza ulazne; bez nje se izlaz upisuje u `a.out`. Izlaz je običan tekst i može se otvoriti u bilo kom editoru. Pri sintaksnoj grešci asembler ispisuje broj linije i opis problema, ne upisuje ništa i završava sa statusom 1.
 
 ## Upotreba
 
-**Format izvornog koda.** Jedna naredba ili direktiva po liniji. Komentar počinje znakom `#` i traje do kraja linije. Labela se završava dvotačkom i mora biti prva na svojoj liniji; može stajati samostalno, i tada označava prvu narednu liniju koja ima sadržaj. Operandi se razdvajaju zapetama. Literali su dekadni ili heksadekadni sa prefiksom `0x` i mogu biti negativni. Registri su `r0` do `r7`, pri čemu je `r6` pokazivač steka, a `r7` programski brojač.
+**Format izvornog koda.** Jedna naredba ili direktiva po liniji. Komentar počinje znakom `#` i traje do kraja linije. Labela se završava dvotačkom i mora biti prva na svojoj liniji; može stajati samostalno, i tada označava prvu narednu liniju koja ima sadržaj. Operandi se razdvajaju zapetama. Literali su dekadni ili heksadekadni sa prefiksom `0x` i mogu biti negativni. Registri su `r0` do `r7`, pri čemu se `sp` i `pc` prihvataju kao imena za `r6` i `r7`, kao i statusna reč `psw`.
 
 ```asm
 # file: main.s
@@ -73,7 +73,7 @@ myCounter:
 | `.global sym, ...` | Izvozi navedene simbole |
 | `.extern sym, ...` | Uvozi navedene simbole |
 | `.section ime` | Započinje novu sekciju; prethodna se završava |
-| `.word sym, ...` ili `.word literal` | Alocira dva bajta po inicijalizatoru, little-endian |
+| `.word init, ...` | Alocira dva bajta po inicijalizatoru, od kojih je svaki simbol ili literal, little-endian |
 | `.skip n` | Alocira `n` bajtova popunjenih nulama |
 | `.equ sym, literal` | Definiše apsolutni simbol |
 | `.end` | Prekida asembliranje; ostatak datoteke se odbacuje |
@@ -161,7 +161,7 @@ A0 10 00 00 05
 Programi u `tests/` su ulazi kojima je asembler proveravan. Automatski pokretač ne postoji; svaki se asemblira zasebno i izlaz se pregleda.
 
 ```sh
-for f in tests/*.s; do ./assembler -o "${f%.s}.o" "$f"; done
+for f in tests/*.s; do ./asembler -o "${f%.s}.o" "$f"; done
 ```
 
 | Datoteka | Proverava |
@@ -185,8 +185,5 @@ Makefile
 
 ## Ograničenja
 
-- Registri se prihvataju samo kao `r0` do `r7`. Imena `sp`, `pc` i `psw` se ne prepoznaju.
-- `.word` prima ili listu simbola ili jedan literal, ne mešovitu listu.
 - Ime sekcije sme da se pojavi samo jednom u datoteci; drugi `.section` sa istim imenom se ne spaja sa prvim.
-- Opcija `-o` mora stajati ispred ulazne datoteke.
 - Predmetni program je isključivo tekstualan. Postavka dozvoljava i dodatni binarni izlaz, koji nije implementiran.
