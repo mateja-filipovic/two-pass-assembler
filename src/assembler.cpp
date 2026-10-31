@@ -657,8 +657,8 @@ void Assembler::word_handler_sp()
     {
         int val = literal_to_number(line_tokens.at(token_counter));
 
-        // insert into object code
-        output.push_back(write_hex(val, 4));
+        // insert into object code, low byte first
+        output.push_back(write_hex(((val & 0xFF) << 8) | ((val >> 8) & 0xFF), 4));
 
         token_counter++;
         location_counter += 2;
@@ -679,7 +679,7 @@ void Assembler::word_handler_sp()
                 relocation_table.push_back(new RelRecord(location_counter, RELOCATION_ABSOLUTE, tmp->index, current_section));
             
             int val = tmp->offset;
-            output.push_back(write_hex(val, 4));
+            output.push_back(write_hex(((val & 0xFF) << 8) | ((val >> 8) & 0xFF), 4)); // low byte first
             location_counter += 2;
             token_counter++;
         }
@@ -1056,13 +1056,13 @@ void Assembler::stack_handler_sp()
     {
         out = "B0 6";
         out += extract_register_num(line_tokens.at(token_counter));
-        out += " 22";
+        out += " 12";
     }
     else
     {
         out = "A0 ";
         out += extract_register_num(line_tokens.at(token_counter));
-        out += "6 32";
+        out += "6 42";
     }
 
     location_counter += 3;
