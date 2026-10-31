@@ -35,6 +35,13 @@ struct RelRecord
     {}
 };
 
+struct Section
+{
+    std::string name;
+    uint size;
+    std::vector<std::string> code;
+};
+
 class Assembler
 {
 public:
@@ -67,6 +74,7 @@ private:
 
     //directive handlers second pass
     void section_handler_sp();
+    void close_section(); // move output so far into the current section
     void word_handler_sp();
     void global_handler_sp();
     void skip_handler_sp();
@@ -88,6 +96,7 @@ private:
 
     // when compilation is done, print everything into the output file
     void print_data();
+    void print_sections(std::ofstream& outfile);
     void print_symtab(std::ofstream& outfile);
     void print_reloc(std::ofstream& outfile);
     void print_object_file(std::ofstream& outfile);
@@ -106,6 +115,7 @@ private:
     std::vector<std::string> line_tokens; // current line tokens
 
     std::vector<std::string> output; // object file output
+    std::vector<Section> sections; // output grouped by section, in source order
 
     std::vector<Symbol*> symbol_table;
     std::vector<RelRecord *> relocation_table;

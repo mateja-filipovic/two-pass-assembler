@@ -534,6 +534,7 @@ void Assembler::second_pass()
     location_counter = 0;
     line_counter = 1;
     end_reached = false;
+    current_section = "BLANK";
 
     for(std::string line : lines)
     {
@@ -545,7 +546,7 @@ void Assembler::second_pass()
         }
 
         line_tokens.clear();
-        parser->tokenize(line, line_tokens); 
+        parser->tokenize(line, line_tokens);
         token_counter = 0;
 
         // just a comment line, go next
@@ -581,6 +582,7 @@ void Assembler::second_pass()
         if(end_reached)
             break;
     }
+    close_section();
     // prints all the data into an output file
     print_data();
 }
@@ -651,8 +653,19 @@ Symbol* Assembler::find_symbol(std::string label)
     return nullptr;
 }
 
+void Assembler::close_section()
+{
+    if(current_section == "BLANK" && output.empty())
+        return;
+
+    sections.push_back({current_section, location_counter, output});
+    output.clear();
+}
+
 void Assembler::section_handler_sp()
 {
+    close_section();
+
     // update current section, remove '.', reset lc
     current_section = line_tokens.at(token_counter);
 
@@ -1294,8 +1307,22 @@ void Assembler::print_object_file(std::ofstream& outfile)
     outfile << std::endl;
     outfile << std::endl;
     outfile << "# ------------------ OBJECT FILE ------------------" << std::endl;
-    for(std::string s : output)
-        outfile << s << std::endl;
+    for(const Section& sec : sections)
+    {
+        outfile << "# ------------------ CODE." << sec.name << " ------------------" << std::endl;
+        for(const std::string& s : sec.code)
+            outfile << s << std::endl;
+    }
+}
+
+void Assembler::print_sections(std::ofstream& outfile)
+{
+    outfile << "# ------------------ SECTION TABLE ------------------" << std::endl;
+    outfile << std::setw(15) << "NAME" << std::setw(15) << "SIZE" << std::endl;
+    for(const Section& sec : sections)
+        outfile << std::setw(15) << sec.name << std::setw(15) << sec.size << std::endl;
+    outfile << std::endl;
+    outfile << std::endl;
 }
 
 void Assembler::print_symtab(std::ofstream& outfile){
@@ -1311,6 +1338,7 @@ void Assembler::print_data()
 {
     std::ofstream outfile(output_file);
 
+    print_sections(outfile);
     print_symtab(outfile);
     print_reloc(outfile);
     print_object_file(outfile);

@@ -6,7 +6,7 @@ An implementation of a two pass assembler, that converts code written in assembl
 ## Some important notes
 * the project is compiled using `g++` and tested on ubuntu
 * the output is a file structured like an `ELF` object file, containing
-a symbol table, relocation data and machine code
+a section table (name and size), a symbol table, relocation data and machine code grouped by section
 
 ## Project structure
 * `inc` and `src` folders contain the code
