@@ -146,6 +146,7 @@ private:
     // for relocations
     const std::string RELOCATION_ABSOLUTE = "R_HYPO_16";
     const std::string RELOCATION_PCREL = "R_HYPO_PC16";
+    const std::string RELOCATION_DATA = "R_HYPO_DATA16"; // .word, little-endian
 
     // directive mneumonics
     const std::string GLOBAL_DIRECTIVE = ".global";

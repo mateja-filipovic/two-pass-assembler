@@ -568,7 +568,7 @@ void Assembler::word_handler_sp()
             }
             // dodaj u tabelu relokacija, ako nije equ koriscen!
             if(tmp->section != ABSOLUTE_SECTION)
-                relocation_table.push_back(new RelRecord(location_counter, RELOCATION_ABSOLUTE, tmp->index, current_section));
+                relocation_table.push_back(new RelRecord(location_counter, RELOCATION_DATA, tmp->index, current_section));
             val = tmp->offset;
         }
 
@@ -952,7 +952,7 @@ std::string Assembler::encode_operand(const Operand& op)
         }
         payload = s->offset;
         if(s->section != ABSOLUTE_SECTION)
-            relocation_table.push_back(new RelRecord(location_counter, op.reloc_type, s->index, current_section));
+            relocation_table.push_back(new RelRecord(location_counter + 3, op.reloc_type, s->index, current_section)); // payload follows the three descriptor bytes
     }
 
     out += " " + write_hex(payload, 4);

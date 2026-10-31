@@ -3,4 +3,5 @@
 # build outputs
 *.o
 asembler
+linker
 a.out

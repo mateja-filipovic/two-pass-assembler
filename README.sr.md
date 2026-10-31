@@ -1,7 +1,7 @@
 <h1 align="center">Dvoprolazni asembler</h1>
 
 <p align="center">
-  Dvoprolazni asembler u C++-u za 16-bitni školski procesor: sekcije, simboli, relokacije i devet načina adresiranja.
+  Dvoprolazni asembler i linker u C++-u za 16-bitni školski procesor: sekcije, simboli, relokacije i devet načina adresiranja.
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@
 
 ---
 
-Ovo je prvi od tri zadatka iz projekta na predmetu Sistemski softver na Elektrotehničkom fakultetu Univerziteta u Beogradu. Postavka opisuje apstraktni 16-bitni računar i traži asembler, linker i emulator za njega. Ovaj repozitorijum sadrži asembler. On čita izvornu datoteku napisanu na asemblerskom jeziku iz postavke i proizvodi tekstualni predmetni program u školskoj varijanti ELF formata: tabelu sekcija, tabelu simbola, relokacione zapise i mašinski kod, spreman da ga linker poveže sa drugim predmetnim programima. Linker i emulator su zasebni programi i nisu deo ovog repozitorijuma.
+Ovo je prvi od tri zadatka iz projekta na predmetu Sistemski softver na Elektrotehničkom fakultetu Univerziteta u Beogradu. Postavka opisuje apstraktni 16-bitni računar i traži asembler, linker i emulator za njega. Ovaj repozitorijum sadrži asembler i linker. Asembler čita izvornu datoteku napisanu na asemblerskom jeziku iz postavke i proizvodi tekstualni predmetni program u školskoj varijanti ELF formata: tabelu sekcija, tabelu simbola, relokacione zapise i mašinski kod. Linker spaja takve predmetne programe, smešta njihove sekcije u memoriju i razrešava sve simbole, dajući ili sliku memorije za emulator ili novi predmetni program koji se može ponovo povezivati. Emulator nije deo ovog repozitorijuma.
 
 ## Prevođenje
 
@@ -31,15 +31,34 @@ cd Two-Pass-Assembler
 make
 ```
 
-Izvršna datoteka `asembler` nastaje u korenu repozitorijuma, pod imenom koje postavka zahteva. `make clean` uklanja nju i objektne datoteke.
+Izvršne datoteke `asembler` i `linker` nastaju u korenu repozitorijuma; `asembler` sa jednim `s` je ime koje postavka zahteva. `make clean` uklanja nju i objektne datoteke.
 
 ## Pokretanje
+
+**Asembler.** Jedna izvorna datoteka na ulazu, jedan predmetni program na izlazu.
 
 ```sh
 ./asembler -o main.o tests/test_main.s
 ```
 
 Opcija `-o` zadaje ime izlazne datoteke i može stajati ispred ili iza ulazne; bez nje se izlaz upisuje u `a.out`. Izlaz je običan tekst i može se otvoriti u bilo kom editoru. Pri sintaksnoj grešci asembler ispisuje broj linije i opis problema, ne upisuje ništa i završava sa statusom 1.
+
+**Linker.** Proizvoljan broj predmetnih programa na ulazu, jedna datoteka na izlazu. Primer programa iz postavke podeljen je na dve izvorne datoteke i povezuje se ovako.
+
+```sh
+./asembler -o interrupts.o tests/test_interrupts.s
+./asembler -o main.o tests/test_main.s
+./linker -hex -place=ivt@0x0000 -o program.hex interrupts.o main.o
+```
+
+| Opcija | Efekat |
+|---|---|
+| `-hex` | Upisuje sliku memorije: po jedna linija na osam bajtova, oblika `adresa: bajtovi`, samo za adrese na kojima nešto ima |
+| `-linkable` | Umesto toga upisuje predmetni program u formatu asemblera, sa svim sekcijama od adrese 0, tako da se može ponovo povezivati |
+| `-place=<sekcija>@<adresa>` | Smešta sekciju na zadatu adresu; može se ponavljati. Sekcije bez nje idu iza najviše smeštene, redom kojim se pojavljuju |
+| `-o <datoteka>` | Ime izlazne datoteke, podrazumevano `a.out` |
+
+Tačno jedna od opcija `-hex` i `-linkable` je obavezna. Simbol definisan u dve datoteke, simbol koji nigde nije definisan ili dve smeštene sekcije koje se preklapaju zaustavljaju povezivanje uz poruku koja imenuje krivca. Uz `-linkable` nedefinisan simbol je dozvoljen i ostaje nedefinisan u izlazu.
 
 ## Upotreba
 
@@ -118,7 +137,7 @@ myCounter:
 
 **Kodiranje naredbi.** Naredbe zauzimaju od jednog do pet bajtova: bajt operacionog koda, bajt registara (`regD` u višem nibl-u, `regS` u nižem), bajt načina adresiranja i opcioni dvobajtni sadržaj (engl. payload). Sadržaj se upisuje višim bajtom napred, onako kako ga postavka crta. PC relativni operandi koriste `r7` kao bazni registar, uz registarsko direktno adresiranje sa pomerajem za skokove i registarsko indirektno sa pomerajem za podatke. Reči iz `.word` direktive upisuju se nižim bajtom napred, u skladu sa little-endian memorijom ciljne arhitekture.
 
-**Relokacije.** Relokacioni zapis se beleži za svaki simbol koji nije apsolutan, u listi po sekciji oblika `pomeraj tip simbol`. `pomeraj` je početak naredbe ili `.word` direktive koja sadrži vrednost; kod naredbe se sadržaj nalazi tri bajta dalje. `tip` je `R_HYPO_16` za apsolutne reference i `R_HYPO_PC16` za PC relativne. `simbol` je redni broj u tabeli simbola. Sadržaj već nosi pomeraj simbola unutar njegove sekcije, a linker ga zamenjuje konačnom vrednošću, ne sabira sa njim. Kod PC relativnih referenci asembler prepušta linkeru korekciju za vrednost `pc`.
+**Relokacije.** Relokacioni zapis se beleži za svaki simbol koji nije apsolutan, u listi po sekciji oblika `pomeraj tip simbol`. `pomeraj` je mesto dva bajta koja treba upisati. `tip` je `R_HYPO_16` za apsolutnu referencu u naredbi, `R_HYPO_PC16` za PC relativnu i `R_HYPO_DATA16` za `.word`, koji se od prvog razlikuje samo po tome što je little-endian. `simbol` je redni broj u tabeli simbola. Ta dva bajta već nose pomeraj simbola unutar njegove sekcije, a linker ga zamenjuje konačnom vrednošću, ne sabira sa njim. Kod PC relativne reference linker oduzima adresu bajta iza sadržaja, jer tamo pokazuje `pc` u trenutku formiranja operanda.
 
 **Predmetni program.** Tekstualna datoteka sa četiri dela, ovim redom: tabela sekcija, tabela simbola, po jedna lista relokacija za svaku sekciju koja ih ima i mašinski kod grupisan po sekcijama. Predmetni program za gornji primer izgleda ovako.
 
@@ -138,8 +157,8 @@ myCounter:
       myCounter         myData              0              g              5
 
 # ------------------ REL.myCode ------------------
-10 R_HYPO_16 5
-22 R_HYPO_16 3
+13 R_HYPO_16 5
+25 R_HYPO_16 3
 
 # ------------------ OBJECT FILE ------------------
 # ------------------ CODE.myCode ------------------
@@ -153,6 +172,8 @@ A0 10 00 00 05
 # ------------------ CODE.myData ------------------
 00 00
 ```
+
+**Povezivanje.** Linker učitava svaki predmetni program nazad u iste zapise, zatim nadovezuje sekcije istog imena redom kojim su datoteke zadate, pamteći gde počinje deo svake datoteke. Globalni simbol definisan u dve datoteke je greška. Nedefinisan simbol se traži po imenu među globalnim definicijama svih datoteka; lokalni simbol se traži samo unutar sopstvene datoteke. Uz `-hex` svaka sekcija dobija adresu, svaka relokacija se popunjava konačnom adresom simbola ili njegovim rastojanjem od `pc`, a bajtovi se upisuju po rastućim adresama. Uz `-linkable` adrese se ne dodeljuju; spojene sekcije, prenumerisana tabela simbola i prepisane relokacije upisuju se u formatu asemblera, pri čemu bajtovi svake relokacije nose novi pomeraj simbola u spojenoj sekciji.
 
 **Parsiranje.** Parser deli svaku liniju po belinama, odbacuje komentar i zapete i predaje tokene asembleru. Operand u zagradama, kao `[r1 + 5]`, beline mogu da razdvoje na više tokena, pa čitač operanda spaja tokene dok ne naiđe na zatvorenu zagradu. Svaki oblik operanda se poredi sa malim skupom regularnih izraza.
 
@@ -175,9 +196,12 @@ for f in tests/*.s; do ./asembler -o "${f%.s}.o" "$f"; done
 ```
 inc/assembler.h    zapisi za simbol, relokaciju, sekciju i operand; klasa Assembler
 inc/parser.h       čitač linija i tokenizator
+inc/linker.h       zapisi predmetnog programa i klasa Linker
 src/assembler.cpp  oba prolaza, parsiranje i kodiranje operanada, upis izlaza
 src/parser.cpp     tokenizator
-src/main.cpp       obrada komandne linije
+src/main.cpp       obrada komandne linije asemblera
+src/linker.cpp     čitač predmetnog programa, spajanje i smeštanje sekcija, razrešavanje simbola, oba upisa
+src/linker_main.cpp obrada komandne linije linkera
 tests/             primeri programa
 docs/              beleške o implementaciji
 Makefile
@@ -187,3 +211,4 @@ Makefile
 
 - Ime sekcije sme da se pojavi samo jednom u datoteci; drugi `.section` sa istim imenom se ne spaja sa prvim.
 - Predmetni program je isključivo tekstualan. Postavka dozvoljava i dodatni binarni izlaz, koji nije implementiran.
+- Emulator, treći zadatak iz postavke, nije implementiran, pa se povezan program ovde ne može izvršiti.
