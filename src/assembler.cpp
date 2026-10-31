@@ -185,7 +185,7 @@ void Assembler::word_handler_fp()
             //std::regex literal("^(([0-9]+)|(0[xX][0-9A-Fa-f]+))$");
 
     // check if literal or symbol list
-    if(std::regex_match(line_tokens.at(token_counter), WORD_LITERAL_REGEX))
+    if(std::regex_match(line_tokens.at(token_counter), LITERAL_REGEX))
     {
         token_counter++;
         if(token_counter != line_tokens.size())
@@ -201,7 +201,7 @@ void Assembler::word_handler_fp()
         // for each symbol check if format is correct
         while(token_counter < line_tokens.size())
         {
-            if(!std::regex_match(line_tokens.at(token_counter), WORD_SYMBOL_REGEX))
+            if(!std::regex_match(line_tokens.at(token_counter), SYMBOL_REGEX))
             {
                 std::cout << "ERROR in line " << line_counter << ",  " << line_tokens.at(token_counter) << " is not a symbol" << std::endl;
                 exit(1);                          
@@ -269,7 +269,7 @@ void Assembler::end_handler_fp()
 void Assembler::global_handler_fp()
 {
     while(token_counter < line_tokens.size()){
-        if(!std::regex_match(line_tokens.at(token_counter), WORD_SYMBOL_REGEX))
+        if(!std::regex_match(line_tokens.at(token_counter), SYMBOL_REGEX))
         {
             std::cout << "ERROR in line" << line_counter << ", syntax error";
             exit(1);
@@ -371,71 +371,9 @@ void Assembler::instruction_handler()
         instruction_mneumonic == CALL_MNE
     )
     {
-        // branch token read, go next token
         token_counter++;
-
-        // nije u pitanju registarsko indirektno
-        // treba proveriti sva ostala adresiranja
-        if(line_tokens.at(token_counter).compare(0, 2, "*[") != 0)
-        {
-            if(line_tokens.size() - token_counter != 1)
-            {
-                std::cout << "ERROR IN LINE " << line_counter << " incorrect operand format" << line_tokens.at(token_counter) << std::endl;
-                exit(1);
-            }
-
-            std::string temp_token = line_tokens.at(token_counter);
-            if
-            (
-                std::regex_match(temp_token, BRANCH_LITERAL_REGEX) ||
-                std::regex_match(temp_token, BRANCH_SYMBOL_REGEX) ||
-                std::regex_match(temp_token, BRANCH_PCREL_REGEX) ||
-                std::regex_match(temp_token, BRANCH_MEMLITERAL_REGEX) ||
-                (std::regex_match(temp_token, BRANCH_MEMSYMBOL_REGEX) && !std::regex_match(temp_token, BRANCH_REGDIR_REGEX))
-            )
-            {
-                location_counter += 5;
-            }
-            else if(std::regex_match(line_tokens.at(token_counter), BRANCH_REGDIR_REGEX))
-            {
-                location_counter += 3;
-            }
-            else
-            {
-                std::cout << "ERROR IN LINE " << line_counter << "unknown addressing mode" << std::endl;
-                exit(1);
-            }
-
-            token_counter++;
-        }
-        else
-        {
-            // concat regind addressing into one string with no spaces
-            std::string expression = form_expression();
-
-            if(token_counter != line_tokens.size())
-            {
-                std::cout << "ERROR IN LINE " << line_counter << "eol junk found!" << std::endl;
-                exit(1);
-            }       
-
-            if(std::regex_match(expression, BRANCH_REGIND_REGEX))
-            {
-                location_counter += 3;
-            }
-            else if
-            (
-                std::regex_match(expression, BRANCH_LITERALREGIND_REGEX) ||
-                std::regex_match(expression, BRANCH_SYMBOLREGIND_REGEX)
-            )
-            {
-                location_counter += 5;
-            }else
-            {
-                std::cout << "ERROR IN LINE " << line_counter << "unknown addressing mode!" << std::endl;
-                exit(1);
-            }
-        }
+        Operand op = parse_operand(read_operand(), true);
+        location_counter += op.size;
     }
     else if
     (
@@ -446,71 +384,22 @@ void Assembler::instruction_handler()
     {
         token_counter++;
 
-        //std::regex first_operand("^r[0-7]$");
-        if(!std::regex_match(line_tokens.at(token_counter++), REGISTER_INSTRUCTION_REGEX))
+        if(token_counter == line_tokens.size() || !std::regex_match(line_tokens.at(token_counter), REGISTER_INSTRUCTION_REGEX))
         {
             std::cout << "ERROR IN LINE " << line_counter << ", first operand must be a register" << std::endl;
             exit(1);
-        }  
+        }
+        token_counter++;
 
-        if(token_counter == line_tokens.size())
+        Operand op = parse_operand(read_operand(), false);
+        if(instruction_mneumonic == STR_MNE && op.immediate)
         {
-            std::cout << "ERROR IN LINE " << line_counter << ", no operand found" << std::endl;
+            std::cout << "ERROR in line " << line_counter << ", cannot store to immediate value" << std::endl;
             exit(1);
-        }  
-
-        if(line_tokens.at(token_counter).at(0) != '[')
-        {
-            std::string temp_token = line_tokens.at(token_counter);
-            if
-            (
-                std::regex_match(temp_token, LS_LITERAL_REGEX) ||
-                std::regex_match(temp_token, LS_SYMBOL_REGEX) ||
-                std::regex_match(temp_token, LS_MEMLITERAL_REGEX) ||
-                std::regex_match(temp_token, LS_MEMSYMBOL_REGEX) ||
-                std::regex_match(temp_token, LS_PCRELSYMBOL_REGEX)
-            )
-            {
-                location_counter += 5;
-            }
-            else if(std::regex_match(temp_token, LS_REGDIR_REGEX))
-            {
-                location_counter += 3;
-            }
-            else
-            {
-                std::cout << "ERROR IN LINE " << line_counter << ", unknown addressing mode" << std::endl;
-                exit(1);
-            }
         }
-        else
-        {
-            // concat the expression that may contain spaces into one that does not
-            std::string expression = form_expression();
-
-            if(token_counter != line_tokens.size())
-            {
-                std::cout << "ERROR IN LINE " << line_counter << ", eol junk found!" << std::endl;
-                exit(1);
-            }       
-            if(std::regex_match(expression, LS_REGIND_REGEX))
-            {
-                location_counter += 3;
-            }
-            else if
-            (
-                std::regex_match(expression, LS_LITERALREGIND_REGEX) ||
-                std::regex_match(expression, LS_SYMBOLREGIND_REGEX)
-            )
-            {
-                location_counter += 5;
-            }else
-            {
-                std::cout << "ERROR IN LINE " << line_counter << ", unknown addressing mode!" << std::endl;
-                exit(1);
-            } 
-        }
+        location_counter += op.size;
     }
+
     else if(instruction_mneumonic == PUSH_MNE || instruction_mneumonic == POP_MNE)
     {
         token_counter++;
@@ -677,7 +566,7 @@ void Assembler::section_handler_sp()
 
 void Assembler::word_handler_sp()
 {
-    if(std::regex_match(line_tokens.at(token_counter), WORD_LITERAL_REGEX))
+    if(std::regex_match(line_tokens.at(token_counter), LITERAL_REGEX))
     {
         int val = literal_to_number(line_tokens.at(token_counter));
 
@@ -892,137 +781,13 @@ void Assembler::branch_handler_sp()
 
     token_counter++;
 
-    std::string out = opcode;
-    out += " ";
-
-    std::string temp_token = line_tokens.at(token_counter);
-
-    // there may be spaces in [r0 + 0x12], so form an expression
-    // mozda ne treba back
-    if(temp_token.compare(0, 2, "*[") == 0 && temp_token.back() != ']')
-        temp_token = form_expression();
-    
-    // immediate literal
-    if(std::regex_match(temp_token, BRANCH_LITERAL_REGEX))
-    {
-        out += "F0 00 ";
-        int val = literal_to_number(line_tokens.at(token_counter));
-        out += write_hex(val, 4);
-        location_counter += 5;
-    }
-    // immediate symbol
-    else if(std::regex_match(temp_token, BRANCH_SYMBOL_REGEX))
-    {
-        out += "F0 00 ";
-        Symbol* s = find_symbol(temp_token);
-        if(s == nullptr)
-        {
-            std::cout << "ERROR in line" << line_counter << " symbol " << temp_token << " undefined" << std::endl;
-            exit(1);
-        }
-        out += write_hex(s->offset, 4);
-        // add rel record
-        if(s->section != ABSOLUTE_SECTION)
-            relocation_table.push_back(new RelRecord(location_counter, RELOCATION_ABSOLUTE, s->index, current_section));
-        location_counter += 5;
-    }
-    // pc relative symbol
-    else if(std::regex_match(temp_token, BRANCH_PCREL_REGEX))
-    {
-        out += "F7 05 ";
-        std::string symbol_no_percent = temp_token.substr(1);
-        Symbol* s = find_symbol(symbol_no_percent);
-        if(s == nullptr)
-        {
-            std::cout << "ERROR in line" << line_counter << " symbol " << symbol_no_percent << " undefined" << std::endl;
-            exit(1);
-        }
-        out += write_hex(s->offset, 4);
-        // add rel record
-        if(s->section != ABSOLUTE_SECTION)
-            relocation_table.push_back(new RelRecord(location_counter, RELOCATION_PCREL, s->index, current_section)); 
-        location_counter += 5;
-    }
-    else if(std::regex_match(temp_token, BRANCH_MEMLITERAL_REGEX))
-    {
-        out += "F0 04 ";
-        // remove star before literal then convert to number
-        std::string literal_no_star = temp_token.substr(1);
-        int val = literal_to_number(literal_no_star);
-        out += write_hex(val, 4);
-        location_counter += 5;
-    }
-    else if(std::regex_match(temp_token, BRANCH_MEMSYMBOL_REGEX)  && !std::regex_match(temp_token, BRANCH_REGDIR_REGEX))
-    {
-        out += "F0 04 ";
-        std::string symbol_no_star = temp_token.substr(1);
-        Symbol* s = find_symbol(symbol_no_star);
-        if(s == nullptr)
-        {
-            std::cout << "ERROR in line" << line_counter << " symbol " << symbol_no_star << " undefined" << std::endl;
-            exit(1);
-        }
-        out += write_hex(s->offset, 4);
-        // add rel record
-        if(s->section != ABSOLUTE_SECTION)
-            relocation_table.push_back(new RelRecord(location_counter, RELOCATION_ABSOLUTE, s->index, current_section)); 
-        location_counter += 5;
-    }
-    else if(std::regex_match(temp_token, BRANCH_REGDIR_REGEX))
-    {
-        // remove the star before register
-        std::string register_no_star = temp_token.substr(1);
-        out += "F";
-        out += extract_register_num(register_no_star);
-        out += " 01";
-        location_counter += 3;
-    }
-    else if(std::regex_match(temp_token, BRANCH_REGIND_REGEX))
-    {
-        std::string reg = extract_between_chars(temp_token, '[', ']');
-        out += "F";
-        out += extract_register_num(reg);
-        out += " 02";
-        location_counter += 3;
-    }
-    else if(std::regex_match(temp_token, BRANCH_LITERALREGIND_REGEX))
-    {
-        out += "F";
-        std::string reg = extract_between_chars(temp_token, '[', '+');
-        int val = literal_to_number(extract_between_chars(temp_token, '+', ']'));
-
-        out += extract_register_num(reg);
-        out += " 03 ";
-        out += write_hex(val, 4);
-
-        location_counter += 5;
-    }
-    else if(std::regex_match(temp_token, BRANCH_SYMBOLREGIND_REGEX))
-    {
-        out += "F";
-
-        std::string reg = extract_between_chars(temp_token, '[', '+');
-        std::string sym_name = extract_between_chars(temp_token, '+', ']');
-
-        Symbol* s = find_symbol(sym_name);
-        if(s == nullptr)
-        {
-            std::cout << "ERROR in line" << line_counter << " symbol " << sym_name << " undefined" << std::endl;
-            exit(1);
-        }
-
-        out += extract_register_num(reg);
-        out += " 03 ";
-        out += write_hex(s->offset, 4);
-
-        // add rel record
-        if(s->section != ABSOLUTE_SECTION)
-            relocation_table.push_back(new RelRecord(location_counter, RELOCATION_ABSOLUTE, s->index, current_section)); 
-        location_counter += 5;
-    }
+    Operand op = parse_operand(read_operand(), true);
+    std::string out = opcode + " F" + encode_operand(op);
+    location_counter += op.size;
 
     output.push_back(out);
 }
+
 
 std::string Assembler::extract_register_num(std::string token)
 {
@@ -1032,12 +797,6 @@ std::string Assembler::extract_register_num(std::string token)
     return res;
 }
 
-std::string Assembler::extract_between_chars(std::string str, char from, char to)
-{
-    int index_from = str.find(from);
-    int index_to = str.find(to);
-    return str.substr(index_from+1, index_to - index_from-1);
-}
 
 int Assembler::literal_to_number(std::string literal)
 {
@@ -1062,29 +821,161 @@ int Assembler::literal_to_number(std::string literal)
     return val;
 }
 
-std::string Assembler::form_expression()
+std::string Assembler::read_operand()
 {
-    // handle register indirect address mode
     if(token_counter == line_tokens.size())
-        return line_tokens.at(token_counter-1);
-
-    std::string expression = line_tokens.at(token_counter);
-    token_counter++;
-    if(expression.back() != ']')
     {
-        while(expression.back() != ']')
+        std::cout << "ERROR in line " << line_counter << ", operand missing" << std::endl;
+        exit(1);
+    }
+
+    std::string text = line_tokens.at(token_counter++);
+
+    // [r1 + x] may be split across tokens
+    if(text.find('[') != std::string::npos)
+    {
+        while(text.back() != ']')
         {
             if(token_counter == line_tokens.size())
             {
-                std::cout << "ERROR IN LINE " << line_counter << "unknown addressing mode" << std::endl;
+                std::cout << "ERROR in line " << line_counter << ", missing ']' in operand" << std::endl;
                 exit(1);
             }
-            expression += line_tokens.at(token_counter++);
+            text += line_tokens.at(token_counter++);
         }
     }
-    //std::cout << "returning " << expression << std::endl;
-    return expression;
+
+    if(token_counter != line_tokens.size())
+    {
+        std::cout << "ERROR in line " << line_counter << ", junk after operand: " << line_tokens.at(token_counter) << std::endl;
+        exit(1);
+    }
+
+    return text;
 }
+
+Operand Assembler::parse_operand(const std::string& text, bool is_branch)
+{
+    Operand op;
+    op.reg = '0';
+    op.literal = 0;
+    op.has_symbol = false;
+    op.immediate = false;
+    op.reloc_type = RELOCATION_ABSOLUTE;
+
+    if(text.at(0) == '%')
+    {
+        op.symbol = text.substr(1);
+        if(!std::regex_match(op.symbol, SYMBOL_REGEX))
+        {
+            std::cout << "ERROR in line " << line_counter << ", unknown addressing mode: " << text << std::endl;
+            exit(1);
+        }
+        op.has_symbol = true;
+        op.reg = '7';
+        op.addr_mode = is_branch ? "05" : "03";
+        op.size = 5;
+        op.reloc_type = RELOCATION_PCREL;
+        return op;
+    }
+
+    // branches: bare operand is immediate, '*' means memory
+    // data: '$' is immediate, bare operand means memory
+    std::string body;
+    if(is_branch)
+    {
+        op.immediate = text.at(0) != '*';
+        body = op.immediate ? text : text.substr(1);
+    }
+    else
+    {
+        op.immediate = text.at(0) == '$';
+        body = op.immediate ? text.substr(1) : text;
+    }
+
+    bool is_literal = std::regex_match(body, LITERAL_REGEX);
+    bool is_symbol = std::regex_match(body, SYMBOL_REGEX);
+    std::string payload = body;
+
+    if(op.immediate)
+    {
+        if(!is_literal && !is_symbol)
+        {
+            std::cout << "ERROR in line " << line_counter << ", unknown addressing mode: " << text << std::endl;
+            exit(1);
+        }
+        op.addr_mode = "00";
+        op.size = 5;
+    }
+    else if(std::regex_match(body, REGISTER_INSTRUCTION_REGEX))
+    {
+        op.reg = body.at(1);
+        op.addr_mode = "01";
+        op.size = 3;
+        return op;
+    }
+    else if(std::regex_match(body, REGIND_REGEX))
+    {
+        op.reg = body.at(2);
+        op.addr_mode = "02";
+        op.size = 3;
+        return op;
+    }
+    else if(std::regex_match(body, REGIND_LITERAL_REGEX) || std::regex_match(body, REGIND_SYMBOL_REGEX))
+    {
+        op.reg = body.at(2);
+        op.addr_mode = "03";
+        op.size = 5;
+        payload = body.substr(body.find('+') + 1);
+        payload.pop_back();
+    }
+    else if(is_literal || is_symbol)
+    {
+        op.addr_mode = "04";
+        op.size = 5;
+    }
+    else
+    {
+        std::cout << "ERROR in line " << line_counter << ", unknown addressing mode: " << text << std::endl;
+        exit(1);
+    }
+
+    if(std::regex_match(payload, LITERAL_REGEX))
+        op.literal = literal_to_number(payload);
+    else
+    {
+        op.has_symbol = true;
+        op.symbol = payload;
+    }
+
+    return op;
+}
+
+std::string Assembler::encode_operand(const Operand& op)
+{
+    std::string out(1, op.reg);
+    out += " " + op.addr_mode;
+    if(op.size == 3)
+        return out;
+
+    int payload = op.literal;
+    if(op.has_symbol)
+    {
+        Symbol* s = find_symbol(op.symbol);
+        if(s == nullptr)
+        {
+            std::cout << "ERROR in line " << line_counter << ", symbol " << op.symbol << " undefined" << std::endl;
+            exit(1);
+        }
+        payload = s->offset;
+        if(s->section != ABSOLUTE_SECTION)
+            relocation_table.push_back(new RelRecord(location_counter, op.reloc_type, s->index, current_section));
+    }
+
+    out += " " + write_hex(payload, 4);
+    return out;
+}
+
 
 void Assembler::stack_handler_sp()
 {
@@ -1120,149 +1011,18 @@ void Assembler::mem_handler_sp()
     else if(line_tokens.at(token_counter) == STR_MNE)
         opcode = "B0";
 
-    token_counter++; 
-
-    std::string out = opcode;
-    out += " ";
-
-
-    // parse first operand
-    std::string first_operand = line_tokens.at(token_counter);
-    out += extract_register_num(first_operand);
-
     token_counter++;
-    std::string temp_token = line_tokens.at(token_counter);
 
-    // there may be spaces [r0 +0x1], so form and expression
-    // mozda ne treba back
-    if(temp_token.at(0) == '[' && temp_token.back() != ']')
-        temp_token = form_expression();
+    std::string reg_d = extract_register_num(line_tokens.at(token_counter));
+    token_counter++;
 
-
-    if(std::regex_match(temp_token, LS_LITERAL_REGEX))
-    {
-        if(opcode == "B0")
-        {
-            std::cout << "ERROR in line " << line_counter << ", cannot store to immediate value" << std::endl;
-            exit(1);
-        }
-
-        out += "0 00 ";
-
-        // remove $ before literal
-        std::string literal_num = temp_token.substr(1);
-        int val = literal_to_number(literal_num);
-
-        out += write_hex(val, 4);
-        location_counter += 5;
-    }
-    else if(std::regex_match(temp_token, LS_SYMBOL_REGEX))
-    {
-        if(opcode == "B0")
-        {
-            std::cout << "ERROR in line " << line_counter << ", cannot store to immediate value" << std::endl;
-            exit(1);
-        }
-
-        out += "0 00 ";
-
-        std::string sym_name = temp_token.substr(1);
-        Symbol* s = find_symbol(sym_name);
-        if(s == nullptr)
-        {
-            std::cout << "ERROR in line" << line_counter << ", symbol (" << temp_token << ") undefined" << std::endl;
-            exit(1);
-        }
-
-        out += write_hex(s->offset, 4);
-
-        if(s->section != ABSOLUTE_SECTION)
-            relocation_table.push_back(new RelRecord(location_counter, RELOCATION_ABSOLUTE, s->index, current_section));
-        
-        location_counter += 5;
-    }
-    else if(std::regex_match(temp_token, LS_MEMLITERAL_REGEX))
-    {
-        out += "0 04 ";
-        int val = literal_to_number(temp_token);
-        out += write_hex(val, 4);
-        location_counter += 5;
-    }
-    else if(std::regex_match(temp_token, LS_MEMSYMBOL_REGEX))
-    {
-        out += "0 04 ";
-        Symbol* s = find_symbol(temp_token);
-        if(s == nullptr)
-        {
-            std::cout << "ERROR in line" << line_counter << " symbol (" << temp_token << ") undefined" << std::endl;
-            exit(1);
-        }
-        out += write_hex(s->offset, 4);
-        if(s->section != ABSOLUTE_SECTION)
-            relocation_table.push_back(new RelRecord(location_counter, RELOCATION_ABSOLUTE, s->index, current_section));
-        location_counter += 5;
-    }
-    else if(std::regex_match(temp_token, LS_PCRELSYMBOL_REGEX))
-    {
-        out += "7 03 ";
-        std::string sym_name = temp_token.substr(1);
-        Symbol* s = find_symbol(sym_name);
-        if(s == nullptr)
-        {
-            std::cout << "ERROR in line" << line_counter << " symbol " << temp_token << " undefined" << std::endl;
-            exit(1);
-        }
-        out += write_hex(s->offset, 4);
-        if(s->section != ABSOLUTE_SECTION)
-            relocation_table.push_back(new RelRecord(location_counter, RELOCATION_PCREL, s->index, current_section));
-        location_counter += 5;
-    }
-    else if(std::regex_match(temp_token, LS_REGDIR_REGEX))
-    {
-        out += extract_register_num(temp_token);
-        out += " 01";
-        location_counter += 3;
-    }
-    else if(std::regex_match(temp_token, LS_REGIND_REGEX))
-    {
-        std::string reg = extract_between_chars(temp_token, '[', ']');
-        out += extract_register_num(reg);
-        out += " 02";
-        location_counter += 3;
-    }
-    else if(std::regex_match(temp_token, LS_LITERALREGIND_REGEX))
-    {
-        std::string reg = extract_between_chars(temp_token, '[', '+');
-        int val = literal_to_number(extract_between_chars(temp_token, '+', ']'));
-
-        out += extract_register_num(reg);
-        out += " 03 ";
-        out += write_hex(val, 4);
-
-        location_counter +=5;
-    }
-    else if(std::regex_match(temp_token, LS_SYMBOLREGIND_REGEX))
-    {
-        std::string reg = extract_between_chars(temp_token, '[', '+');
-        std::string sym_name = extract_between_chars(temp_token, '+', ']');
-        Symbol* s = find_symbol(sym_name);
-        if(s == nullptr)
-        {
-            std::cout << "ERROR in line" << line_counter << " symbol " << temp_token << " undefined" << std::endl;
-            exit(1);
-        }
-        if(s->section != ABSOLUTE_SECTION)
-            relocation_table.push_back(new RelRecord(location_counter, RELOCATION_ABSOLUTE, s->index, current_section));
-
-        out += extract_register_num(reg);
-        out += " 03 ";
-        out += write_hex(s->offset, 4);
-
-        location_counter +=5;
-    }
+    Operand op = parse_operand(read_operand(), false);
+    std::string out = opcode + " " + reg_d + encode_operand(op);
+    location_counter += op.size;
 
     output.push_back(out);
 }
+
 
 
 void Assembler::print_reloc(std::ofstream& outfile)
@@ -1346,29 +1106,12 @@ void Assembler::print_data()
     outfile.close();
 }
 
-    const std::regex Assembler::WORD_LITERAL_REGEX("^((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))$");
-    const std::regex Assembler::WORD_SYMBOL_REGEX("^[a-zA-Z]\\w*$");
+    const std::regex Assembler::LITERAL_REGEX("^((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))$");
+    const std::regex Assembler::SYMBOL_REGEX("^[a-zA-Z]\\w*$");
 
     const std::regex Assembler::REGISTER_INSTRUCTION_REGEX("^r[0-7]$");
 
-    // branch and call addressing modes and formats
-    const std::regex Assembler::BRANCH_LITERAL_REGEX("^((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))$");
-    const std::regex Assembler::BRANCH_SYMBOL_REGEX("^[a-zA-Z]\\w*$");
-    const std::regex Assembler::BRANCH_PCREL_REGEX("^%[a-zA-Z]\\w*$");
-    const std::regex Assembler::BRANCH_MEMLITERAL_REGEX("^\\*((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))$");
-    const std::regex Assembler::BRANCH_MEMSYMBOL_REGEX("^\\*[a-zA-Z]\\w*$");
-    const std::regex Assembler::BRANCH_REGDIR_REGEX("^\\*r[0-7]$");
-    const std::regex Assembler::BRANCH_REGIND_REGEX("^\\*\\[r[0-7]\\]$");   
-    const std::regex Assembler::BRANCH_LITERALREGIND_REGEX("^\\*\\[r[0-7]\\s?\\+\\s?((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))\\]$");   
-    const std::regex Assembler::BRANCH_SYMBOLREGIND_REGEX("^\\*\\[r[0-7]\\s?\\+\\s?[a-zA-Z]\\w*\\]$"); 
-
-    // load store addressing modes and formats
-    const std::regex Assembler::LS_LITERAL_REGEX("^\\$((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))$");
-    const std::regex Assembler::LS_SYMBOL_REGEX("^\\$[a-zA-Z]\\w*$");
-    const std::regex Assembler::LS_MEMLITERAL_REGEX("^((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))$");
-    const std::regex Assembler::LS_MEMSYMBOL_REGEX("^[a-zA-Z]\\w*$");
-    const std::regex Assembler::LS_PCRELSYMBOL_REGEX("^%[a-zA-Z]\\w*$");
-    const std::regex Assembler::LS_REGDIR_REGEX("^r[0-7]$");
-    const std::regex Assembler::LS_REGIND_REGEX("^\\[r[0-7]\\]$");   
-    const std::regex Assembler::LS_LITERALREGIND_REGEX("^\\[r[0-7]\\s?\\+\\s?((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))\\]$");   
-    const std::regex Assembler::LS_SYMBOLREGIND_REGEX("^\\[r[0-7]\\s?\\+\\s?[a-zA-Z]\\w*\\]$"); 
+    // register indirect operand forms, tokens already joined without spaces
+    const std::regex Assembler::REGIND_REGEX("^\\[r[0-7]\\]$");
+    const std::regex Assembler::REGIND_LITERAL_REGEX("^\\[r[0-7]\\+((-?[0-9]+)|(0[xX][0-9A-Fa-f]+))\\]$");
+    const std::regex Assembler::REGIND_SYMBOL_REGEX("^\\[r[0-7]\\+[a-zA-Z]\\w*\\]$");

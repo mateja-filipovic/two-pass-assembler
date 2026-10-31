@@ -42,6 +42,18 @@ struct Section
     std::vector<std::string> code;
 };
 
+struct Operand
+{
+    std::string addr_mode;
+    char reg; // RS nibble, '0' when unused
+    int size;
+    bool immediate;
+    bool has_symbol;
+    std::string symbol;
+    int literal;
+    std::string reloc_type;
+};
+
 class Assembler
 {
 public:
@@ -90,8 +102,9 @@ private:
     Symbol* find_symbol(std::string label); // find simbol by name
     std::string write_hex(int val, int num_of_nibbles); // returns hex representation of a num, ex. 17 => 00 11
     std::string extract_register_num(std::string token); // get register number, ex. r3 => 3
-    std::string extract_between_chars(std::string str, char from, char to); // returns a substring between chars
-    std::string form_expression(); // concat register indirect addressing to one string with no spaces
+    std::string read_operand(); // consume the rest of the line as one operand, ex. "[r1", "+", "5]" => "[r1+5]"
+    Operand parse_operand(const std::string& text, bool is_branch); // classify an operand, shared by both passes
+    std::string encode_operand(const Operand& op); // RS nibble, AddrMode byte and payload; records relocations
     int literal_to_number(std::string literal); // convert a literal (hex or decimal) to an integer
 
     // when compilation is done, print everything into the output file
@@ -173,32 +186,12 @@ private:
 
 
     // regexes used
-    static const std::regex WORD_LITERAL_REGEX;
-    static const std::regex WORD_SYMBOL_REGEX;
-
+    static const std::regex LITERAL_REGEX;
+    static const std::regex SYMBOL_REGEX;
     static const std::regex REGISTER_INSTRUCTION_REGEX;
-
-    // branch and call addressing modes and formats
-    static const std::regex BRANCH_LITERAL_REGEX;
-    static const std::regex BRANCH_SYMBOL_REGEX;
-    static const std::regex BRANCH_PCREL_REGEX;
-    static const std::regex BRANCH_MEMLITERAL_REGEX;
-    static const std::regex BRANCH_MEMSYMBOL_REGEX;
-    static const std::regex BRANCH_REGDIR_REGEX;
-    static const std::regex BRANCH_REGIND_REGEX; 
-    static const std::regex BRANCH_LITERALREGIND_REGEX; 
-    static const std::regex BRANCH_SYMBOLREGIND_REGEX;
-
-    // load store addressing modes and formats
-    static const std::regex LS_LITERAL_REGEX;
-    static const std::regex LS_SYMBOL_REGEX;
-    static const std::regex LS_MEMLITERAL_REGEX;
-    static const std::regex LS_MEMSYMBOL_REGEX;
-    static const std::regex LS_PCRELSYMBOL_REGEX;
-    static const std::regex LS_REGDIR_REGEX;
-    static const std::regex LS_REGIND_REGEX;   
-    static const std::regex LS_LITERALREGIND_REGEX;   
-    static const std::regex LS_SYMBOLREGIND_REGEX;  
+    static const std::regex REGIND_REGEX;
+    static const std::regex REGIND_LITERAL_REGEX;
+    static const std::regex REGIND_SYMBOL_REGEX;
 
 
 };
